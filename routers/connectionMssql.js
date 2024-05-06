@@ -51,18 +51,21 @@ router.get("/products/:ttba/:a/:b/:c/:d/:e/:f", async (req, res) => {
   });
 });
 
-// get RACK by scanner
-router.get("/racks/:loc/:rak/:row/:col/:name", async (req, res) => {
-  const { loc,rak,row,col,name } = req.params;
+// get RACK by ItemID and DNc_No
+router.get("/racks/:loc/:rak/:row/:col/:Item_ID/:DNc_No", async (req, res) => {
+  const { loc,rak,row,col} = req.params;
+  const formatItem_ID = req.params.Item_ID.replace(/_/g, ' ');
+  const formatDNc_No = req.params.DNc_No.replace(/-/g, '\/')
 
   // console.log(req.params);
+  // console.log(formatItem_ID, formatDNc_No);
 
   sql.connect(config, function (err) {
     if (err) console.log(err);
     const request = new sql.Request();
     request.query(
       `SELECT * FROM t_pemetaan_gudang
-      WHERE Lokasi = '${loc}' AND Rak = '${rak}' AND Baris = '${row}' AND Kolom = '${col}' AND Item_Name = '${name}';`,
+      WHERE Lokasi = '${loc}' AND Rak = '${rak}' AND Baris = '${row}' AND Kolom = '${col}' AND Item_ID = '${formatItem_ID}' AND DNc_No = '${formatDNc_No}';`,
       async function (err, { recordset }) {
         if (err) console.log(err);
         res.send(recordset);
@@ -70,6 +73,7 @@ router.get("/racks/:loc/:rak/:row/:col/:name", async (req, res) => {
     );
   });
 });
+
 
 // get product by id
 // router.get("/products/:id", async (req, res) => {
@@ -92,8 +96,10 @@ router.get("/racks/:loc/:rak/:row/:col/:name", async (req, res) => {
 // });
 
 //patch racks
-router.patch("/racks/:loc/:rak/:row/:col/:name", async (req, res) => {
-  const { loc, rak, row, col, name } = req.params;
+router.patch("/racks/:loc/:rak/:row/:col/:Item_ID/:DNc_No", async (req, res) => {
+  const { loc, rak, row, col } = req.params;
+  const formatItem_ID = req.params.Item_ID.replace(/_/g, ' ');
+  const formatDNc_No = req.params.DNc_No.replace(/-/g, '\/')
   const { newQty } = req.body; // Assuming the new quantity is sent in the request body
 
   console.log(req.body);
@@ -106,8 +112,8 @@ router.patch("/racks/:loc/:rak/:row/:col/:name", async (req, res) => {
     const request = new sql.Request();
     request.query(
       `UPDATE t_pemetaan_gudang 
-       SET Qty = Qty + ${newQty} 
-       WHERE Lokasi = '${loc}' AND Rak = '${rak}' AND Baris = '${row}' AND Kolom = '${col}' AND Item_Name = '${name}';`,
+       SET Qty = Qty + ${newQty}
+       WHERE Lokasi = '${loc}' AND Rak = '${rak}' AND Baris = '${row}' AND Kolom = '${col}' AND Item_ID = '${formatItem_ID}' AND DNc_No = '${formatDNc_No}';`,
       async function (err, result) {
         if (err) {
           console.log(err);
@@ -125,9 +131,11 @@ router.patch("/racks/:loc/:rak/:row/:col/:name", async (req, res) => {
 });
 
 //add racks
-router.post("/racks/:loc/:rak/:row/:col/:name", async (req, res) => {
-  const { loc, rak, row, col, name } = req.params;
-  const { newQty,DNc_No, Item_ID, Process_Date } = req.body; // Assuming the new quantity is sent in the request body
+router.post("/racks/:loc/:rak/:row/:col/:Item_ID/:DNc_No", async (req, res) => {
+  const { loc, rak, row, col} = req.params;
+  const formatItem_ID = req.params.Item_ID.replace(/_/g, ' ');
+  const formatDNc_No = req.params.DNc_No.replace(/-/g, '\/')
+  const { newQty, Process_Date, Item_Name } = req.body; // Assuming the new quantity is sent in the request body
 
   console.log(req.body, "ini body");
   console.log(req.params, "ini params");
@@ -145,7 +153,7 @@ router.post("/racks/:loc/:rak/:row/:col/:name", async (req, res) => {
     const request = new sql.Request();
     request.query(
       `INSERT INTO t_pemetaan_gudang (Lokasi, Rak, Baris, Kolom, Item_Name, Qty, DNc_No, Item_ID, Process_Date ) 
-       VALUES ('${loc}', '${rak}', '${row}', '${col}', '${name}', ${newQty}, '${DNc_No}', '${Item_ID}', '${Process_Date}');`,
+       VALUES ('${loc}', '${rak}', '${row}', '${col}', '${Item_Name}', ${newQty}, '${formatDNc_No}', '${formatItem_ID}', '${Process_Date}');`,
       async function (err, result) {
         if (err) {
           console.log(err);
@@ -153,6 +161,38 @@ router.post("/racks/:loc/:rak/:row/:col/:name", async (req, res) => {
         }
 
         res.status(201).send("New data added successfully");
+      }
+    );
+  });
+});
+
+//delete racks
+router.delete("/racks/:loc/:rak/:row/:col/:Item_ID/:DNc_No", async (req, res) => {
+  const { loc, rak, row, col } = req.params;
+  const formatItem_ID = req.params.Item_ID.replace(/_/g, ' ');
+  const formatDNc_No = req.params.DNc_No.replace(/-/g, '\/')
+
+  sql.connect(config, function (err) {
+    if (err) {
+      console.log(err);
+      return res.status(500).send("Internal Server Error");
+    }
+
+    const request = new sql.Request();
+    request.query(
+      `DELETE FROM t_pemetaan_gudang 
+       WHERE Lokasi = '${loc}' AND Rak = '${rak}' AND Baris = '${row}' AND Kolom = '${col}' AND Item_ID = '${formatItem_ID}' AND DNc_No = '${formatDNc_No}';`,
+      async function (err, result) {
+        if (err) {
+          console.log(err);
+          return res.status(500).send("Failed to delete record");
+        }
+
+        if (result.rowsAffected[0] === 0) {
+          return res.status(404).send("No matching records found");
+        }
+
+        res.status(200).send("Record deleted successfully");
       }
     );
   });
