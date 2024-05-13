@@ -1,15 +1,16 @@
 const express = require("express");
-// const v1Router = require("./v1");
-// const v2Router = require("./v2");
-
 const router = express.Router();
+const MsqlController = require("../controllers/controller");
 
-router.get("/", (_, res) => {
-  res.send("Welcome to LAPI Laboratories eBatch Record API!");
-});
+router.get("/", (req,res) => {
+	res.send("Warehouse API")
+})
 
-// API versioning
-// router.use("/v1", v1Router);
-// router.use("/v2", v2Router);
-
+router.get("/products/:ttba/:a/:b/:c/:d/:e/:f", MsqlController.fetchProductByScanner);
+router.get("/racks/:loc/:rak/:row/:col/:Item_ID/:DNc_No", MsqlController.fetchRackByItemIDAndDNc_No);
+router.get("/racks/:loc/:rak/:row/:col", MsqlController.fetchRackByLocation);
+router.patch("/racks/:loc/:rak/:row/:col/:Item_ID/:DNc_No", MsqlController.increaseQtyRackByLocItemIDDNcNo);
+router.patch("/racks/:loc/:rak/:row/:col/:Item_ID/:DNc_No/dec", MsqlController.decreaseQtyRackByLocItemIDDNcNo); 
+router.post("/racks/:loc/:rak/:row/:col/:Item_ID/:DNc_No", MsqlController.insertProductToRack);
+router.delete("/racks/:loc/:rak/:row/:col/:Item_ID/:DNc_No", MsqlController.deleteProductFromRack);
 module.exports = router;
