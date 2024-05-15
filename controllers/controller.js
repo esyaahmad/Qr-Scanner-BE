@@ -1,5 +1,9 @@
 const sql = require("mssql");
 const MyError = require("../helpers/eror");
+const { Op, Sequelize } = require("sequelize");
+const {t_pemetaan_gudang_detail} = require("../models");
+const env = process.env.NODE_ENV || 'development';
+
 
 const config = {
   user: process.env.MS_SQL_DB_USER,
@@ -11,6 +15,14 @@ const config = {
     trustServerCertificate: true,
   },
 };
+
+const configPostgre = require(__dirname + "/../config/config.js")[env];
+let sequelize = new Sequelize(
+  configPostgre.database,
+  configPostgre.username,
+  configPostgre.password,
+  configPostgre
+);
 
 class MsqlController {
   static async fetchProductByScanner(req, res, next) {
@@ -94,20 +106,37 @@ class MsqlController {
   }
 
   static async increaseQtyRackByLocItemIDDNcNo(req, res, next) {
+    let t = await sequelize.transaction();
     try {
       const { loc, rak, row, col } = req.params;
       const formatItem_ID = req.params.Item_ID.replace(/_/g, " ");
       const formatDNc_No = req.params.DNc_No.replace(/-/g, "/");
+      const location = `${loc}/${rak}/${row}/${col}`;
       const { newQty } = req.body; // Assuming the new quantity is sent in the request body
       //   console.log(req.body);
       const pool = await sql.connect(config);
       const request = pool.request();
-
       const result = await request.query(
         `UPDATE t_pemetaan_gudang 
             SET Qty = Qty + ${newQty}
             WHERE Lokasi = '${loc}' AND Rak = '${rak}' AND Baris = '${row}' AND Kolom = '${col}' AND Item_ID = '${formatItem_ID}' AND DNc_No = '${formatDNc_No}';`
       );
+      // console.log(result, "recordset1"); // ada {rowsAffected: [ 1 ]}
+
+      await t_pemetaan_gudang_detail.create(
+        {
+          lokasi: location,
+          item_id: formatItem_ID,
+          ttba_no: formatDNc_No,
+          user_id: 'test',
+          delegated_to: 'test',
+          flag: 'UPDATED',
+
+        }, { transaction: t }
+      );
+
+      await t.commit()
+
       //   if (result.recordset.length === 0)
       //     throw new MyError(404, "Rack Not Found");
       //   const recordset = result?.recordset;
@@ -115,6 +144,7 @@ class MsqlController {
         message: "Quantity updated successfully",
       });
     } catch (error) {
+      await t.rollback()
       console.log(error);
       next(error);
     }
@@ -148,10 +178,12 @@ class MsqlController {
   }
 
   static async insertProductToRack(req, res, next) {
+    let t = await sequelize.transaction();
     try {
       const { loc, rak, row, col } = req.params;
       const formatItem_ID = req.params.Item_ID.replace(/_/g, " ");
       const formatDNc_No = req.params.DNc_No.replace(/-/g, "/");
+      const location = `${loc}/${rak}/${row}/${col}`;
       const { newQty, Process_Date, Item_Name } = req.body; // Assuming the new quantity is sent in the request body
 
       console.log(req.body, "ini body");
@@ -171,10 +203,25 @@ class MsqlController {
       //   if (result.recordset.length === 0)
       //     throw new MyError(404, "Rack Not Found");
       //   const recordset = result?.recordset;
+
+      await t_pemetaan_gudang_detail.create(
+        {
+          lokasi: location,
+          item_id: formatItem_ID,
+          ttba_no: formatDNc_No,
+          user_id: 'test',
+          delegated_to: 'test',
+          flag: 'CREATED',
+
+        }, { transaction: t }
+      );
+
+      await t.commit()
       res.status(200).json({
         message: "Product added successfully",
       });
     } catch (error) {
+      await t.rollback()
       console.log(error);
       next(error);
     }
