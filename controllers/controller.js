@@ -31,6 +31,10 @@ class MsqlController {
       const formatTtba = req.params.ttba.replace(/-/g, "/");
       console.log(req.params, "ini params");
 
+      if (!formatTtba || !seqId || !vat) {
+        return res.status(404).send("Rak Not Found");
+      }
+
       // const ttba = Object.values(data).join("/");
       // console.log(data, "ini data");
 
@@ -44,7 +48,10 @@ class MsqlController {
       });
       console.log(detailFound, "detailFound");
       if (detailFound) {
-        throw new MyError(404, `TTBA ${detailFound.ttba_no} sudah terdaftar pada rak ${detailFound.lokasi} sejumlah ${detailFound.qty_per_vat}`);
+        throw new MyError(
+          404,
+          `TTBA ${detailFound.ttba_no} sudah terdaftar pada rak ${detailFound.lokasi} sejumlah ${detailFound.qty_per_vat}`
+        );
       }
 
       const pool = await sql.connect(config);
@@ -76,6 +83,9 @@ class MsqlController {
       res.status(200).json(recordset);
     } catch (error) {
       console.log(error);
+      if (error.name === "SequelizeDatabaseError") {
+        return res.status(404).send({ message: "Product Not Found" });
+      }
       next(error);
     }
   }
@@ -83,7 +93,7 @@ class MsqlController {
   static async fetchProductByDncNoAndItemId(req, res, next) {
     try {
       const { DNc_no, item_id } = req.params;
-      // console.log(seqId, vat, "ini seqId dan vat");      
+      // console.log(seqId, vat, "ini seqId dan vat");
       console.log(req.params, "ini params");
 
       // const ttba = Object.values(data).join("/");
@@ -141,9 +151,7 @@ class MsqlController {
       });
       console.log(detailFound, "detailFound");
 
-      
-      if (!detailFound) 
-        throw new MyError(404, "Product Not Found");
+      if (!detailFound) throw new MyError(404, "Product Not Found");
       res.status(200).json(detailFound);
     } catch (error) {
       console.log(error);
@@ -151,11 +159,36 @@ class MsqlController {
     }
   }
 
-  static async fetchRackByItemIDAndDNc_No(req, res, next) {
+  // static async fetchRackByItemIDAndDNc_No(req, res, next) {
+  //   try {
+  //     const { loc, rak, row, col } = req.params;
+  //     const formatItem_ID = req.params.Item_ID.replace(/_/g, " ");
+  //     const formatDNc_No = req.params.DNc_No.replace(/-/g, "/");
+
+  //     //   // console.log(req.params);
+  //     //   // console.log(formatItem_ID, formatDNc_No)
+  //     const pool = await sql.connect(config);
+  //     const request = pool.request();
+
+  //     const result = await request.query(
+  //       `SELECT * FROM t_pemetaan_gudang
+  //               WHERE Lokasi = '${loc}' AND Rak = '${rak}' AND Baris = '${row}' AND Kolom = '${col}' AND Item_ID = '${formatItem_ID}' AND DNc_No = '${formatDNc_No}';`
+  //     );
+  //     if (result.recordset.length === 0)
+  //       throw new MyError(404, "Product Not Found");
+  //     const recordset = result?.recordset;
+  //     res.status(200).json(recordset);
+  //   } catch (error) {
+  //     console.log(error);
+  //     next(error);
+  //   }
+  // }
+
+  static async fetchRackByTtbaScanned(req, res, next) {
     try {
-      const { loc, rak, row, col } = req.params;
+      const { loc, rak, row, col, ttbaScanned } = req.params;
       const formatItem_ID = req.params.Item_ID.replace(/_/g, " ");
-      const formatDNc_No = req.params.DNc_No.replace(/-/g, "/");
+      const formatDNc_TtbaNo = req.params.DNc_No.replace(/-/g, "/");
 
       //   // console.log(req.params);
       //   // console.log(formatItem_ID, formatDNc_No)
@@ -164,7 +197,7 @@ class MsqlController {
 
       const result = await request.query(
         `SELECT * FROM t_pemetaan_gudang
-                WHERE Lokasi = '${loc}' AND Rak = '${rak}' AND Baris = '${row}' AND Kolom = '${col}' AND Item_ID = '${formatItem_ID}' AND DNc_No = '${formatDNc_No}';`
+                WHERE DNc_TTBANo = '${ttbaScanned}';`
       );
       if (result.recordset.length === 0)
         throw new MyError(404, "Product Not Found");
@@ -244,7 +277,7 @@ class MsqlController {
         ttba_itemUnit,
         vat_no,
         vat_qty,
-        ttba_scanned
+        ttba_scanned,
       } = req.body; // Assuming the new quantity is sent in the request body
       const formatItem_ID = req.params.Item_ID.replace(/_/g, " ");
       const formatDNc_No = req.params.DNc_No.replace(/-/g, "/");
@@ -252,22 +285,20 @@ class MsqlController {
       const qty_per_vat = qty_ttba / vat_qty;
       const qty_less = qty_ttba - newQty;
       const location = `${loc}/${rak}/${row}/${col}`;
-        console.log(req.body);
+      console.log(req.body, "ini body increase");
 
       const detailFound = await t_pemetaan_gudang_detail.findOne({
         where: {
-          ttba_no: formatTtba,
-          DNc_no: formatDNc_No,
-          item_id: formatItem_ID,
-          seq_id,
-          vat_no,
-          vat_qty,
+          DNc_TtbaNo: ttba_scanned,
         },
         order: [["createdAt", "DESC"]],
       });
       console.log(detailFound, "detailFound");
       if (detailFound) {
-        throw new MyError(404, `TTBA sudah terdaftar pada rak ini sejumlah ${detailFound.qty_per_vat}`);
+        throw new MyError(
+          404,
+          `TTBA sudah terdaftar pada rak ini sejumlah ${detailFound.qty_per_vat}`
+        );
       }
       // if (detailFound.qty_less <= 0) {
       //   throw new MyError(400, "Quantity is empty, cannot be input!");
@@ -284,24 +315,29 @@ class MsqlController {
       const pool = await sql.connect(config);
       const request = pool.request();
       const result = await request.query(
+        // `UPDATE t_pemetaan_gudang
+        //     SET Qty = Qty + ${newQty}
+        //     WHERE Lokasi = '${loc}' AND Rak = '${rak}' AND Baris = '${row}' AND Kolom = '${col}' AND Item_ID = '${formatItem_ID}' AND DNc_No = '${formatDNc_No}';`
+
         `UPDATE t_pemetaan_gudang 
             SET Qty = Qty + ${newQty}
-            WHERE Lokasi = '${loc}' AND Rak = '${rak}' AND Baris = '${row}' AND Kolom = '${col}' AND Item_ID = '${formatItem_ID}' AND DNc_No = '${formatDNc_No}';`
+            WHERE DNc_TTBANo = '${ttba_scanned}';`
       );
       // console.log(result, "recordset1"); // ada {rowsAffected: [ 1 ]}
 
-        if (detailFoundLatest) {
+      if (detailFoundLatest) {
         await t_pemetaan_gudang_detail.create(
           {
             lokasi: location,
             ttba_no: formatTtba,
             DNc_no: formatDNc_No,
+            DNc_TtbaNo: ttba_scanned,
             seq_id,
             item_name: Item_Name,
             item_id: formatItem_ID,
             qty_ttba,
             ttba_itemUnit,
-            qty_per_vat : newQty,
+            qty_per_vat: newQty,
             qty_less: detailFoundLatest.qty_less - newQty,
             vat_no,
             vat_qty,
@@ -310,24 +346,24 @@ class MsqlController {
             flag: "UPDATED (+)",
           },
           { transaction: t }
-          
         );
         await t.commit();
-      res.status(200).json({
-        message: "Product added successfully",
-      });
+        res.status(200).json({
+          message: "Product added successfully",
+        });
       } else {
         await t_pemetaan_gudang_detail.create(
           {
             lokasi: location,
             ttba_no: formatTtba,
             DNc_no: formatDNc_No,
+            DNc_TtbaNo: ttba_scanned,
             seq_id,
             item_name: Item_Name,
             item_id: formatItem_ID,
             qty_ttba,
             ttba_itemUnit,
-            qty_per_vat : newQty,
+            qty_per_vat: newQty,
             qty_less: qty_ttba - newQty,
             vat_no,
             vat_qty,
@@ -336,11 +372,11 @@ class MsqlController {
             flag: "UPDATED (+)",
           },
           { transaction: t }
-        ); 
+        );
         await t.commit();
-      res.status(200).json({
-        message: "Product added successfully",
-      }); 
+        res.status(200).json({
+          message: "Product added successfully",
+        });
       }
     } catch (error) {
       await t.rollback();
@@ -391,7 +427,7 @@ class MsqlController {
         ttba_itemUnit,
         vat_no,
         vat_qty,
-        ttba_scanned
+        ttba_scanned,
       } = req.body; // Assuming the new quantity is sent in the request body
 
       const formatItem_ID = req.params.Item_ID.replace(/_/g, " ");
@@ -409,13 +445,16 @@ class MsqlController {
       }
       const detailFound = await t_pemetaan_gudang_detail.findOne({
         where: {
-          DNc_TtbaNo: ttba_scanned
+          DNc_TtbaNo: ttba_scanned,
         },
         order: [["createdAt", "DESC"]],
       });
       console.log(detailFound, "detailFound");
       if (detailFound) {
-        throw new MyError(404, `TTBA sudah terdaftar pada rak ${detailFound.lokasi} sejumlah ${detailFound.qty_per_vat}`);
+        throw new MyError(
+          404,
+          `TTBA sudah terdaftar pada rak ${detailFound.lokasi} sejumlah ${detailFound.qty_per_vat}`
+        );
       }
 
       const detailFoundLatest = await t_pemetaan_gudang_detail.findOne({
@@ -450,7 +489,7 @@ class MsqlController {
             item_id: formatItem_ID,
             qty_ttba,
             ttba_itemUnit,
-            qty_per_vat : newQty,
+            qty_per_vat: newQty,
             qty_less: detailFoundLatest.qty_less - newQty,
             vat_no,
             vat_qty,
@@ -459,12 +498,11 @@ class MsqlController {
             flag: "CREATED",
           },
           { transaction: t }
-          
         );
         await t.commit();
-      res.status(200).json({
-        message: "Product added successfully",
-      });
+        res.status(200).json({
+          message: "Product added successfully",
+        });
       } else {
         await t_pemetaan_gudang_detail.create(
           {
@@ -477,7 +515,7 @@ class MsqlController {
             item_id: formatItem_ID,
             qty_ttba,
             ttba_itemUnit,
-            qty_per_vat : newQty,
+            qty_per_vat: newQty,
             qty_less: qty_ttba - newQty,
             vat_no,
             vat_qty,
@@ -486,14 +524,13 @@ class MsqlController {
             flag: "CREATED",
           },
           { transaction: t }
-        ); 
+        );
         await t.commit();
-      res.status(200).json({
-        message: "Product added successfully",
-      }); 
+        res.status(200).json({
+          message: "Product added successfully",
+        });
       }
 
-      
       // await t.commit();
       // res.status(200).json({
       //   message: "Product added successfully",
@@ -504,7 +541,6 @@ class MsqlController {
       next(error);
     }
   }
-
 
   static async insertMoveProductToRack(req, res, next) {
     let t = await sequelize.transaction();
@@ -520,7 +556,7 @@ class MsqlController {
         ttba_itemUnit,
         vat_no,
         vat_qty,
-        ttba_scanned
+        ttba_scanned,
       } = req.body; // Assuming the new quantity is sent in the request body
 
       const formatItem_ID = req.params.Item_ID.replace(/_/g, " ");
@@ -552,80 +588,104 @@ class MsqlController {
       //   throw new MyError(404, `TTBA sudah terdaftar pada rak ${detailFound.lokasi} sejumlah ${detailFound.qty_per_vat}`);
       // }
 
-      const detailFoundLatest = await t_pemetaan_gudang_detail.findOne({
-        where: {
-          ttba_no: formatTtba,
-          seq_id: String(seq_id),
-        },
-        order: [["createdAt", "DESC"]],
-      });
-      console.log(detailFoundLatest, "detailFoundLatest");
+      // const detailFoundLatest = await t_pemetaan_gudang_detail.findOne({
+      //   where: {
+      //     ttba_no: formatTtba,
+      //     seq_id: String(seq_id),
+      //   },
+      //   order: [["createdAt", "DESC"]],
+      // });
+      // console.log(detailFoundLatest, "detailFoundLatest");
 
       const pool = await sql.connect(config);
       const request = pool.request();
 
       const result = await request.query(
-        `INSERT INTO t_pemetaan_gudang (Lokasi, Rak, Baris, Kolom, Item_Name, Qty, DNc_No, Item_ID, Process_Date) 
-            VALUES ('${loc}', '${rak}', '${row}', '${col}', '${Item_Name}', ${newQty}, '${formatDNc_No}', '${formatItem_ID}', '${Process_Date}');`
+        `INSERT INTO t_pemetaan_gudang (Lokasi, Rak, Baris, Kolom, Item_Name, Qty, DNc_No, Item_ID, Process_Date, DNc_TTBANo) 
+            VALUES ('${loc}', '${rak}', '${row}', '${col}', '${Item_Name}', ${newQty}, '${formatDNc_No}', '${formatItem_ID}', '${Process_Date}', '${ttba_scanned}');`
       );
-      //   if (result.recordset.length === 0)
-      //     throw new MyError(404, "Rack Not Found");
-      //   const recordset = result?.recordset;
+      if (result.length === 0)
+        throw new MyError(404, "Rack Not Found");
+      const recordset = result?.recordset;
 
-      if (detailFoundLatest) {
-        await t_pemetaan_gudang_detail.create(
-          {
-            lokasi: location,
-            ttba_no: formatTtba,
-            DNc_no: formatDNc_No,
-            seq_id,
-            item_name: Item_Name,
-            item_id: formatItem_ID,
-            qty_ttba,
-            ttba_itemUnit,
-            qty_per_vat : newQty,
-            qty_less: detailFoundLatest.qty_less,
-            vat_no,
-            vat_qty,
-            user_id: "test",
-            delegated_to: "test",
-            flag: "CREATED",
-          },
-          { transaction: t }
-          
-        );
-        await t.commit();
+      await t_pemetaan_gudang_detail.create(
+        {
+          lokasi: location,
+          ttba_no: formatTtba,
+          DNc_no: formatDNc_No,
+          DNc_TtbaNo: ttba_scanned,
+          seq_id,
+          item_name: Item_Name,
+          item_id: formatItem_ID,
+          qty_ttba,
+          ttba_itemUnit,
+          qty_per_vat: newQty,
+          qty_less: newQty,
+          vat_no,
+          vat_qty,
+          user_id: "test",
+          delegated_to: "test",
+          flag: "CREATED (m)",
+        },
+        { transaction: t }
+      );
+      await t.commit();
       res.status(200).json({
         message: "Product added successfully",
       });
-      } else {
-        await t_pemetaan_gudang_detail.create(
-          {
-            lokasi: location,
-            ttba_no: formatTtba,
-            DNc_no: formatDNc_No,
-            seq_id,
-            item_name: Item_Name,
-            item_id: formatItem_ID,
-            qty_ttba,
-            ttba_itemUnit,
-            qty_per_vat : newQty,
-            qty_less: qty_ttba - newQty,
-            vat_no,
-            vat_qty,
-            user_id: "test",
-            delegated_to: "test",
-            flag: "CREATED",
-          },
-          { transaction: t }
-        ); 
-        await t.commit();
-      res.status(200).json({
-        message: "Product added successfully",
-      }); 
-      }
+      // if (detailFoundLatest) {
+      //   await t_pemetaan_gudang_detail.create(
+      //     {
+      //       lokasi: location,
+      //       ttba_no: formatTtba,
+      //       DNc_no: formatDNc_No,
+      //       seq_id,
+      //       item_name: Item_Name,
+      //       item_id: formatItem_ID,
+      //       qty_ttba,
+      //       ttba_itemUnit,
+      //       qty_per_vat : newQty,
+      //       qty_less: detailFoundLatest.qty_less,
+      //       vat_no,
+      //       vat_qty,
+      //       user_id: "test",
+      //       delegated_to: "test",
+      //       flag: "CREATED",
+      //     },
+      //     { transaction: t }
 
-      
+      //   );
+      //   await t.commit();
+      // res.status(200).json({
+      //   message: "Product added successfully",
+      // });
+      // } else {
+      //   await t_pemetaan_gudang_detail.create(
+      //     {
+      //       lokasi: location,
+      //       ttba_no: formatTtba,
+      //       DNc_no: formatDNc_No,
+      //       seq_id,
+      //       item_name: Item_Name,
+      //       item_id: formatItem_ID,
+      //       qty_ttba,
+      //       ttba_itemUnit,
+      //       qty_per_vat : newQty,
+      //       qty_less: qty_ttba - newQty,
+      //       vat_no,
+      //       vat_qty,
+      //       user_id: "test",
+      //       delegated_to: "test",
+      //       flag: "CREATED",
+      //     },
+      //     { transaction: t }
+      //   );
+      //   await t.commit();
+      // res.status(200).json({
+      //   message: "Product added successfully",
+      // });
+      // }
+
       // await t.commit();
       // res.status(200).json({
       //   message: "Product added successfully",
@@ -637,6 +697,7 @@ class MsqlController {
     }
   }
 
+  //buat delete di postman
   static async deleteProductFromRack(req, res, next) {
     try {
       const { loc, rak, row, col } = req.params;
@@ -662,6 +723,71 @@ class MsqlController {
       next(error);
     }
   }
+
+  static async deleteProductFromRackByTtbaScanned(req, res, next) {
+    let t = await sequelize.transaction();
+    try {
+      const { loc, rak, row, col, ttbaScanned } = req.params;
+      const {
+        newQty,
+        ttba_no,
+        Process_Date,
+        Item_Name,
+        seq_id,
+        qty_ttba,
+        ttba_itemUnit,
+        vat_no,
+        vat_qty,
+        ttba_scanned,
+      } = req.body;
+      const location = `${loc}/${rak}/${row}/${col}`;
+      const formatItem_ID = req.params.Item_ID.replace(/_/g, " ");
+      const formatDNc_No = req.params.DNc_No.replace(/-/g, "/");
+      // cons= ttba_no.replace(/-/g, "/");
+      const pool = await sql.connect(config);
+      const request = pool.request();
+      // console.log(req.params);
+
+      const result = await request.query(
+        `DELETE FROM t_pemetaan_gudang 
+        WHERE Lokasi = '${loc}' AND Rak = '${rak}' AND Baris = '${row}' AND Kolom = '${col}' AND Item_ID = '${formatItem_ID}' AND DNc_No = '${formatDNc_No}' AND DNc_TTBANo = '${ttbaScanned}';`
+      );
+      // Check if any rows were affected
+      if (result.rowsAffected[0] === 0) {
+        return res.status(404).json({ message: "Product not found" });
+      }
+      await t_pemetaan_gudang_detail.create(
+        {
+          lokasi: location,
+          ttba_no,
+          DNc_no: formatDNc_No,
+          DNc_TtbaNo: ttba_scanned,
+          seq_id,
+          item_name: Item_Name,
+          item_id: formatItem_ID,
+          qty_ttba,
+          ttba_itemUnit,
+          qty_per_vat: newQty,
+          qty_less: newQty,
+          vat_no,
+          vat_qty,
+          user_id: "test",
+          delegated_to: "test",
+          flag: "DELETED (m)",
+        },
+        { transaction: t }
+      );
+      await t.commit();
+      res.status(200).json({
+        message: "Product deleted successfully",
+      });
+    } catch (error) {
+      console.log(error);
+      next(error);
+    }
+  }
 }
+
+
 
 module.exports = MsqlController;
