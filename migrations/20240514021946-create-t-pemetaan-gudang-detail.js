@@ -15,8 +15,38 @@ module.exports = {
       ttba_no: {
         type: Sequelize.STRING
       },
+      DNc_no: {
+        type: Sequelize.STRING
+      },
+      DNc_TtbaNo: {
+        type: Sequelize.STRING
+      },
+      seq_id: {
+        type: Sequelize.STRING
+      },
+      item_name: { 
+        type: Sequelize.STRING
+      },
       item_id: {
         type: Sequelize.STRING
+      },
+      qty_ttba: {
+        type: Sequelize.INTEGER
+      },
+      ttba_itemUnit: {
+        type: Sequelize.STRING
+      },
+      qty_per_vat: {
+        type: Sequelize.INTEGER
+      },
+      qty_less: {
+        type: Sequelize.INTEGER
+      },
+      vat_no: {
+        type: Sequelize.INTEGER
+      },
+      vat_qty: {
+        type: Sequelize.INTEGER
       },
       user_id: {
         type: Sequelize.STRING

@@ -16,7 +16,17 @@ module.exports = (sequelize, DataTypes) => {
   t_pemetaan_gudang_detail.init({
     lokasi: DataTypes.STRING,
     ttba_no: DataTypes.STRING,
+    DNc_no: DataTypes.STRING,
+    DNc_TtbaNo:DataTypes.STRING,
+    seq_id: DataTypes.STRING,
+    item_name: DataTypes.STRING,
     item_id: DataTypes.STRING,
+    qty_ttba: DataTypes.INTEGER,
+    ttba_itemUnit: DataTypes.STRING,
+    qty_per_vat: DataTypes.INTEGER,
+    qty_less: DataTypes.INTEGER,
+    vat_no: DataTypes.INTEGER,
+    vat_qty: DataTypes.INTEGER,
     user_id: DataTypes.STRING,
     delegated_to: DataTypes.STRING,
     flag: DataTypes.STRING
