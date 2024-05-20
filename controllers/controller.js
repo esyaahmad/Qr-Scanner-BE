@@ -90,9 +90,16 @@ class MsqlController {
     }
   }
 
-  static async fetchProductByDncNoAndItemId(req, res, next) {
+  static async fetchProductByTtbaScanned(req, res, next) {
     try {
-      const { DNc_no, item_id } = req.params;
+      const { DNc_no, item_id, ttba } = req.params;
+      const formatTtbaScanned = req.params.ttba.replace(/%2f/g, "/");
+      const formatDNc_No = req.params.DNc_no.replace(/%2f/g, "/");
+      const formatItem_ID = req.params.item_id.replace(/_/g, " ");
+      
+
+      // const formatDNc_TtbaNo = req.params.DNc_no.replace(/-/g, "/");
+
       // console.log(seqId, vat, "ini seqId dan vat");
       console.log(req.params, "ini params");
 
@@ -118,7 +125,7 @@ class MsqlController {
          left join m_item_group f on c.item_group = f.group_id
          left join t_TTBA_Manufacturing_Status G on G.TTBA_No = A.TTBA_No 
          left join t_dnc_manufacturing as I on I.DNc_No = a.TTBA_DNcNo 
-         WHERE a.TTBA_DNcNo  = '${DNc_no}' AND a.TTBA_ItemID = '${item_id}'
+         WHERE a.TTBA_DNcNo  = '${formatDNc_No}' AND a.TTBA_ItemID = '${formatItem_ID}' AND a.TTBA_No = '${formatTtbaScanned}'
          order by a.ttba_seqid`
       );
 
@@ -187,17 +194,18 @@ class MsqlController {
   static async fetchRackByTtbaScanned(req, res, next) {
     try {
       const { loc, rak, row, col, ttbaScanned } = req.params;
-      const formatItem_ID = req.params.Item_ID.replace(/_/g, " ");
-      const formatDNc_TtbaNo = req.params.DNc_No.replace(/-/g, "/");
+      const formatTtbaScanned = req.params.ttbaScanned.replace(/%2F/g, "/");
+      // const formatDNc_TtbaNo = req.params.DNc_No.replace(/-/g, "/");
 
-      //   // console.log(req.params);
+        console.log(req.params);
+        console.log(formatTtbaScanned, "ini formatTtbaScanned");
       //   // console.log(formatItem_ID, formatDNc_No)
       const pool = await sql.connect(config);
       const request = pool.request();
 
       const result = await request.query(
         `SELECT * FROM t_pemetaan_gudang
-                WHERE DNc_TTBANo = '${ttbaScanned}';`
+        WHERE Lokasi = '${loc}' AND Rak = '${rak}' AND Baris = '${row}' AND Kolom = '${col}' AND DNc_TTBANo = '${formatTtbaScanned}';`
       );
       if (result.recordset.length === 0)
         throw new MyError(404, "Product Not Found");
@@ -254,7 +262,7 @@ class MsqlController {
         WHERE Lokasi = '${loc}' AND Rak = '${rak}' AND Baris = '${row}' AND Kolom = '${col}';`
       );
       if (result.recordset.length === 0)
-        throw new MyError(404, "Rack Not Found");
+        throw new MyError(404, "Rak Kosong!");
       const recordset = result?.recordset;
       res.status(200).json(recordset);
     } catch (error) {
@@ -588,14 +596,14 @@ class MsqlController {
       //   throw new MyError(404, `TTBA sudah terdaftar pada rak ${detailFound.lokasi} sejumlah ${detailFound.qty_per_vat}`);
       // }
 
-      // const detailFoundLatest = await t_pemetaan_gudang_detail.findOne({
-      //   where: {
-      //     ttba_no: formatTtba,
-      //     seq_id: String(seq_id),
-      //   },
-      //   order: [["createdAt", "DESC"]],
-      // });
-      // console.log(detailFoundLatest, "detailFoundLatest");
+      const detailFoundLatest = await t_pemetaan_gudang_detail.findOne({
+        where: {
+          ttba_no: formatTtba,
+          seq_id: String(seq_id),
+        },
+        order: [["createdAt", "DESC"]],
+      });
+      console.log(detailFoundLatest, "detailFoundLatest");
 
       const pool = await sql.connect(config);
       const request = pool.request();
@@ -620,7 +628,7 @@ class MsqlController {
           qty_ttba,
           ttba_itemUnit,
           qty_per_vat: newQty,
-          qty_less: newQty,
+          qty_less: detailFoundLatest.qty_less,
           vat_no,
           vat_qty,
           user_id: "test",

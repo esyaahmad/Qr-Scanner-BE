@@ -7,7 +7,7 @@ router.get("/", (req,res) => {
 })
 
 router.get("/products/:ttba/:seqId/:vat", MsqlController.fetchProductByScanner);
-router.get("/products/:DNc_no/:item_id", MsqlController.fetchProductByDncNoAndItemId);
+router.get("/productsByTtba/:DNc_no/:item_id/:ttba", MsqlController.fetchProductByTtbaScanned);
 router.get("/detailProd/:ttba/:seqId", MsqlController.fetchProductDetailByDncNoAndSeqIdAndVatQty);
 // router.get("/racks/:loc/:rak/:row/:col/:Item_ID/:DNc_No", MsqlController.fetchRackByItemIDAndDNc_No);
 router.get("/racks/:loc/:rak/:row/:col/:ttbaScanned", MsqlController.fetchRackByTtbaScanned);
