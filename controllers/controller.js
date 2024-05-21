@@ -50,7 +50,7 @@ class MsqlController {
       if (detailFound) {
         throw new MyError(
           404,
-          `TTBA ${detailFound.ttba_no} sudah terdaftar pada rak ${detailFound.lokasi} sejumlah ${detailFound.qty_per_vat}`
+          `TTBA ${detailFound.ttba_no} sudah terdaftar pada rak ${detailFound.lokasi} sejumlah ${detailFound.qty_per_vat}${detailFound.ttba_itemUnit}`
         );
       }
 
@@ -241,7 +241,7 @@ class MsqlController {
                 WHERE Lokasi = '${loc}' AND Rak = '${rak}' AND Baris = '${row}' AND Kolom = '${col}' AND Item_ID = '${formatItem_ID}' AND DNc_No = '${formatDNc_No}' AND DNc_TTBANo = '${ttba_no}';`
       );
       if (result.recordset.length === 0)
-        throw new MyError(404, "Product Not Found");
+        throw new MyError(404, "Rak Not Found");
       const recordset = result?.recordset;
       console.log(result, "recordset");
       res.status(200).json(recordset);
@@ -568,7 +568,7 @@ class MsqlController {
       } = req.body; // Assuming the new quantity is sent in the request body
 
       const formatItem_ID = req.params.Item_ID.replace(/_/g, " ");
-      const formatDNc_No = req.params.DNc_No.replace(/-/g, "/");
+      const formatDNc_No = req.params.DNc_No.replace(/%2f/g, "/");
       const formatTtba = ttba_no.replace(/-/g, "/");
       const location = `${loc}/${rak}/${row}/${col}`;
       const qty_per_vat = qty_ttba / vat_qty;
@@ -750,7 +750,9 @@ class MsqlController {
       } = req.body;
       const location = `${loc}/${rak}/${row}/${col}`;
       const formatItem_ID = req.params.Item_ID.replace(/_/g, " ");
-      const formatDNc_No = req.params.DNc_No.replace(/-/g, "/");
+      const formatDNc_No = req.params.DNc_No.replace(/%2f/g, "/");
+      const formatTtbaDNcNo = req.params.ttbaScanned.replace(/%2F/g, "/");
+
       // cons= ttba_no.replace(/-/g, "/");
       const pool = await sql.connect(config);
       const request = pool.request();
@@ -758,7 +760,7 @@ class MsqlController {
 
       const result = await request.query(
         `DELETE FROM t_pemetaan_gudang 
-        WHERE Lokasi = '${loc}' AND Rak = '${rak}' AND Baris = '${row}' AND Kolom = '${col}' AND Item_ID = '${formatItem_ID}' AND DNc_No = '${formatDNc_No}' AND DNc_TTBANo = '${ttbaScanned}';`
+        WHERE Lokasi = '${loc}' AND Rak = '${rak}' AND Baris = '${row}' AND Kolom = '${col}' AND Item_ID = '${formatItem_ID}' AND DNc_No = '${formatDNc_No}' AND DNc_TTBANo = '${formatTtbaDNcNo}';`
       );
       // Check if any rows were affected
       if (result.rowsAffected[0] === 0) {
