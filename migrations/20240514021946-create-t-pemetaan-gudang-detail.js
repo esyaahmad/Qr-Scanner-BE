@@ -48,6 +48,9 @@ module.exports = {
       vat_qty: {
         type: Sequelize.INTEGER
       },
+      status: {
+        type: Sequelize.STRING
+      },
       user_id: {
         type: Sequelize.STRING
       },
