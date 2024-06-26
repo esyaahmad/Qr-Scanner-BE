@@ -27,7 +27,7 @@ module.exports = (sequelize, DataTypes) => {
     qty_less: DataTypes.INTEGER,
     vat_no: DataTypes.INTEGER,
     vat_qty: DataTypes.INTEGER,
-    status: DataTypes.STRING,
+    status_ttba: DataTypes.STRING,
     user_id: DataTypes.STRING,
     delegated_to: DataTypes.STRING,
     flag: DataTypes.STRING

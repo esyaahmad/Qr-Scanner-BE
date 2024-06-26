@@ -13,7 +13,7 @@ const config = {
     encrypt: false,
     trustServerCertificate: true,
   },
-  requestTimeout: 30000 // 30 seconds
+  requestTimeout: 30000, // 30 seconds
 };
 
 const configPostgre = require(__dirname + "/../config/config.js")[env];
@@ -28,6 +28,8 @@ class MsqlController {
   //for fetch data from mssql on insert product
   static async fetchProductByScanner(req, res, next) {
     try {
+      // const { user_id, delegated_to } = req.user;
+      // console.log(user_id, delegated_to, "ini user_id dan delegated_to");
       const { seqId, vat } = req.params;
       // console.log(seqId, vat, "ini seqId dan vat");
       const formatTtba = req.params.ttba.replace(/-/g, "/");
@@ -459,16 +461,15 @@ class MsqlController {
   //     // // console.log(totalCount.recordset[0].count, 'ini total count');
   //     // // console.log(offset, limit, 'ini page dan limit');
 
-
-  //     // CARA 3 
+  //     // CARA 3
   //     const result = await request.query(`
   //       SELECT * FROM (
   //           SELECT ROW_NUMBER() OVER (ORDER BY tpg.DNc_No) AS RowNum, tpg.*, mim.Item_Unit, mim.Item_Type, tispd.st_ED
-  //           FROM t_Pemetaan_Gudang tpg 
-  //           LEFT JOIN m_Item_Manufacturing mim ON tpg.Item_ID = mim.Item_ID 
+  //           FROM t_Pemetaan_Gudang tpg
+  //           LEFT JOIN m_Item_Manufacturing mim ON tpg.Item_ID = mim.Item_ID
   //           LEFT JOIN (
   //               SELECT St_ItemID, st_ED, St_DNcNo
-  //               FROM t_Item_Stock_Position_DNc 
+  //               FROM t_Item_Stock_Position_DNc
   //               WHERE St_Periode = '2024 05'
   //           ) tispd ON tpg.DNc_No = tispd.St_DNcNo AND tpg.Item_ID = tispd.St_ItemID
   //           WHERE tpg.Qty > 0
@@ -476,21 +477,21 @@ class MsqlController {
   //       WHERE RowNum >= (@PageNumber - 1) * @PageSize + 1
   //       AND RowNum < @PageNumber * @PageSize + 1;
   //   `);
-    
+
   //   const totalCount = await request.query(`
   //       SELECT COUNT(*) as count
-  //       FROM t_Pemetaan_Gudang tpg 
-  //       LEFT JOIN m_Item_Manufacturing mim ON tpg.Item_ID = mim.Item_ID 
+  //       FROM t_Pemetaan_Gudang tpg
+  //       LEFT JOIN m_Item_Manufacturing mim ON tpg.Item_ID = mim.Item_ID
   //       LEFT JOIN (
   //           SELECT St_ItemID, st_ED, St_DNcNo
-  //           FROM t_Item_Stock_Position_DNc 
+  //           FROM t_Item_Stock_Position_DNc
   //           WHERE St_Periode = '2024 05'
   //       ) tispd ON tpg.DNc_No = tispd.St_DNcNo AND tpg.Item_ID = tispd.St_ItemID
   //       WHERE tpg.Qty > 0;
   //   `);
-    
+
   //   console.log(totalCount, 'ini total count')
-    
+
   //   const recordset = result?.recordset;
   //   res.status(200).json({
   //       data: recordset,
@@ -498,7 +499,7 @@ class MsqlController {
   //       page: parseInt(page),
   //       limit: parseInt(limit),
   //   });
-    
+
   //     //cara dua berhasil dg join tapi lelet
   //   //   const result = await request.query(`
   //   //     SELECT * FROM (
@@ -516,7 +517,7 @@ class MsqlController {
   //   //             tpg.Process_Date,
   //   //             tpg.User_ID,
   //   //             tpg.Delegated_To,
-  //   //             tpg.flag_update,
+  //   //             tpg.status_update,
   //   //             ttmd.TTBA_ItemUnit,
   //   //             tispd.st_ED
   //   //         FROM
@@ -569,18 +570,17 @@ class MsqlController {
 
   static async fetchAllStockGudang(req, res, next) {
     const { page = 1, limit = 50 } = req.query;
-  
+
     try {
       const pool = await sql.connect(config);
       const request = pool.request();
-  
+
       const offset = (parseInt(page) - 1) * parseInt(limit);
-  
+
       // Fetch the paginated data
       const result = await request
-        .input('offset', sql.Int, offset)
-        .input('limit', sql.Int, parseInt(limit))
-        .query(`
+        .input("offset", sql.Int, offset)
+        .input("limit", sql.Int, parseInt(limit)).query(`
          SELECT paged.*, mim.Item_Unit, mim.Item_Type, tispd.st_ED
         FROM (
             SELECT tpg.*, ROW_NUMBER() OVER (ORDER BY tpg.DNc_No) AS RowNum
@@ -596,14 +596,14 @@ class MsqlController {
         WHERE paged.RowNum > @offset AND paged.RowNum <= @offset + @limit
         ORDER BY paged.DNc_No
         `);
-  
+
       // Fetch the total count
       const totalCount = await request.query(`
         SELECT COUNT(*) as count
         FROM t_Pemetaan_Gudang tpg 
         WHERE tpg.Qty > 0
       `);
-  
+
       const recordset = result?.recordset;
       res.status(200).json({
         data: recordset,
@@ -611,15 +611,11 @@ class MsqlController {
         page: parseInt(page),
         limit: parseInt(limit),
       });
-  
     } catch (error) {
       console.log(error);
       next(error);
     }
   }
-  
-  
-  
 
   static async fetchRackByTtbaScanned(req, res, next) {
     try {
@@ -786,10 +782,31 @@ class MsqlController {
     }
   }
 
+  static async fetchTimbangById(req, res, next) {
+    try {
+      const { id } = req.params;
+      const pool = await sql.connect(config);
+      const request = pool.request();
+      const query = `select a.*, b.Item_Unit,  b.Item_Name  From t_bon_keluar_bahan_awal_timbang a 
+      LEFT JOIN m_Item_Manufacturing b ON a.MR_ItemID  = b.Item_ID 
+      where isnull(nett_qty,0) = 0 and No_Mesin_Timbang = ${id} order by No_Mesin_Timbang, No_Urut_Timbang;`;
+      const result = await request.query(query);
+      
+      if (result.recordset.length === 0) {
+        throw new MyError(404, "Data Not Found");
+      }
+      res.status(200).json(result.recordset);
+    } catch (error) {
+      console.log(error);
+      next(error);
+    }
+  }
+
   //kudu tambahin reqbody kayak insert kalo update sama kondisi cek dlu
   static async increaseQtyRackByLocItemIDDNcNo(req, res, next) {
     let t = await sequelize.transaction();
     try {
+      const { user_id, delegated_to } = req.user;
       const { loc, rak, row, col } = req.params;
       const {
         newQty,
@@ -864,8 +881,8 @@ class MsqlController {
             qty_less: detailFoundLatest.qty_less - newQty,
             vat_no,
             vat_qty,
-            user_id: "test",
-            delegated_to: "test",
+            user_id: user_id,
+            delegated_to: delegated_to,
             flag: "UPDATED (+)",
           },
           { transaction: t }
@@ -890,8 +907,8 @@ class MsqlController {
             qty_less: qty_ttba - newQty,
             vat_no,
             vat_qty,
-            user_id: "test",
-            delegated_to: "test",
+            user_id: user_id,
+            delegated_to: delegated_to,
             flag: "UPDATED (+)",
           },
           { transaction: t }
@@ -911,6 +928,7 @@ class MsqlController {
   static async decreaseQtyRackByLocItemIDDNcNo(req, res, next) {
     let t = await sequelize.transaction();
     try {
+      const { user_id, delegated_to } = req.user;
       const { loc, rak, row, col } = req.params;
       const formatTtbaScanned = req.params.ttbaScanned
         .replace(/%2F/g, "/")
@@ -958,8 +976,8 @@ class MsqlController {
           qty_less: 0, //harus diralat ke qtyless terakhir
           vat_no,
           vat_qty: newQty,
-          user_id: "test",
-          delegated_to: "test",
+          user_id: user_id,
+          delegated_to: delegated_to,
           flag: "SAMPLING (-)",
         },
         { transaction: t }
@@ -980,6 +998,8 @@ class MsqlController {
   static async insertProductToRack(req, res, next) {
     let t = await sequelize.transaction();
     try {
+      const { user_id, delegated_to } = req.user;
+
       const { loc, rak, row, col } = req.params;
       const {
         newQty,
@@ -1038,8 +1058,8 @@ class MsqlController {
       }
 
       const result = await request.query(
-        `INSERT INTO t_pemetaan_gudang (Lokasi, Rak, Baris, Kolom, Item_Name, Qty, DNc_No, Item_ID, Process_Date, DNc_TTBANo, Status) 
-            VALUES ('${loc}', '${rak}', '${row}', '${col}', '${Item_Name}', ${newQty}, '${formatDNc_No}', '${formatItem_ID}', '${Process_Date}', '${ttba_scanned}', 'Karantina');`
+        `INSERT INTO t_pemetaan_gudang (Lokasi, Rak, Baris, Kolom, Item_Name, Qty, DNc_No, Item_ID, Process_Date, DNc_TTBANo, Status, User_ID, Delegated_To) 
+            VALUES ('${loc}', '${rak}', '${row}', '${col}', '${Item_Name}', ${newQty}, '${formatDNc_No}', '${formatItem_ID}', '${Process_Date}', '${ttba_scanned}', 'Karantina', '${user_id}', '${delegated_to}');`
       );
       //   if (result.recordset.length === 0)
       //     throw new MyError(404, "Rack Not Found");
@@ -1061,10 +1081,10 @@ class MsqlController {
             qty_less: detailFoundLatest.qty_less - newQty,
             vat_no,
             vat_qty,
-            user_id: "test",
-            delegated_to: "test",
+            user_id: user_id,
+            delegated_to: delegated_to,
             flag: "INSERTED",
-            status: "Karantina",
+            status_ttba: "Karantina",
           },
           { transaction: t }
         );
@@ -1088,10 +1108,10 @@ class MsqlController {
             qty_less: qty_ttba - newQty,
             vat_no,
             vat_qty,
-            user_id: "test",
-            delegated_to: "test",
+            user_id: user_id,
+            delegated_to: delegated_to,
             flag: "INSERTED",
-            status: "Karantina",
+            status_ttba: "Karantina",
           },
           { transaction: t }
         );
@@ -1101,10 +1121,10 @@ class MsqlController {
         });
       }
 
-      // await t.commit();  
+      // await t.commit();
       // res.status(200).json({
       //   message: "Product added successfully",
-      // });
+      // }); ssdfs
     } catch (error) {
       await t.rollback();
       console.log(error);
@@ -1115,6 +1135,8 @@ class MsqlController {
   static async insertBulkProductToRack(req, res, next) {
     let t = await sequelize.transaction();
     try {
+      const { user_id, delegated_to } = req.user; //belum ini
+      console.log(req.user, "ini req.user");
       const { loc, rak, row, col } = req.params;
       const product = req.body; // Assuming the new quantity is sent in the request body
       const location = `${loc}/${rak}/${row}/${col}`;
@@ -1136,7 +1158,7 @@ class MsqlController {
 
           const qtyPerVatFloat = parseFloat(TTBA_qty_per_Vat);
 
-          return `('${loc}','${rak}','${row}','${col}','${No_analisa}','${TTBA_No}#${TTBA_SeqID}#${ttba_vatno}','${ttba_itemid}','${item_name}',${qtyPerVatFloat},'${ttba_date}')`;
+          return `('${loc}','${rak}','${row}','${col}','${No_analisa}','${TTBA_No}#${TTBA_SeqID}#${ttba_vatno}','${ttba_itemid}','${item_name}',${qtyPerVatFloat},'${ttba_date}', '${user_id}', '${delegated_to}', 'Karantina')`;
         })
         .join(" , ");
 
@@ -1175,7 +1197,7 @@ class MsqlController {
       }
 
       const result = await request.query(
-        `INSERT INTO t_pemetaan_gudang (Lokasi, Rak, Baris, Kolom, DNc_No, DNc_TTBANo, Item_ID, Item_Name, Qty, Process_Date) 
+        `INSERT INTO t_pemetaan_gudang (Lokasi, Rak, Baris, Kolom, DNc_No, DNc_TTBANo, Item_ID, Item_Name, Qty, Process_Date, User_ID, Delegated_To, Status) 
             VALUES ${str};`
       );
       if (result.length === 0) throw new MyError(404, "Rack Not Found");
@@ -1194,8 +1216,9 @@ class MsqlController {
         qty_less: 0,
         vat_no: p?.ttba_vatno,
         vat_qty: p?.TTBA_VATQTY,
-        user_id: "test",
-        delegated_to: "test",
+        status_ttba: "Karantina",
+        user_id,
+        delegated_to,
         flag: "INSERTED",
       }));
       await t_pemetaan_gudang_detail.bulkCreate(mappedProducts, {
@@ -1216,6 +1239,8 @@ class MsqlController {
   static async insertMoveProductToRack(req, res, next) {
     let t = await sequelize.transaction();
     try {
+      const { user_id, delegated_to } = req.user;
+
       const { loc, rak, row, col } = req.params;
       const {
         newQty,
@@ -1228,6 +1253,7 @@ class MsqlController {
         vat_no,
         vat_qty,
         ttba_scanned,
+        status_ttba,
       } = req.body; // Assuming the new quantity is sent in the request body
 
       const formatItem_ID = req.params.Item_ID.replace(/_/g, " ");
@@ -1272,8 +1298,8 @@ class MsqlController {
       const request = pool.request();
 
       const result = await request.query(
-        `INSERT INTO t_pemetaan_gudang (Lokasi, Rak, Baris, Kolom, Item_Name, Qty, DNc_No, Item_ID, Process_Date, DNc_TTBANo) 
-            VALUES ('${loc}', '${rak}', '${row}', '${col}', '${Item_Name}', ${newQty}, '${formatDNc_No}', '${formatItem_ID}', '${Process_Date}', '${ttba_scanned}');`
+        `INSERT INTO t_pemetaan_gudang (Lokasi, Rak, Baris, Kolom, Item_Name, Qty, DNc_No, Item_ID, Process_Date, DNc_TTBANo, User_ID, Delegated_To, Status) 
+            VALUES ('${loc}', '${rak}', '${row}', '${col}', '${Item_Name}', ${newQty}, '${formatDNc_No}', '${formatItem_ID}', '${Process_Date}', '${ttba_scanned}', '${user_id}', '${delegated_to}', '${status_ttba}');`
       );
       if (result.length === 0) throw new MyError(404, "Rack Not Found");
       const recordset = result?.recordset;
@@ -1293,8 +1319,9 @@ class MsqlController {
           qty_less: detailFoundLatest.qty_less,
           vat_no,
           vat_qty,
-          user_id: "test",
-          delegated_to: "test",
+          status_ttba,
+          user_id: user_id,
+          delegated_to: delegated_to,
           flag: "MOVED (G)",
         },
         { transaction: t }
@@ -1314,6 +1341,8 @@ class MsqlController {
   static async insertStockPosition(req, res, next) {
     let t = await sequelize.transaction();
     try {
+      const { user_id, delegated_to } = req.user;
+
       const { DNc_No, vat_no } = req.params;
       const { product, rack, scanned } = req.body; // Assuming the new quantity is sent in the request body
 
@@ -1375,7 +1404,7 @@ class MsqlController {
 
       const result = await request.query(
         `INSERT INTO t_item_stock_position_dnc_kecil (Dnc_No, Item_ID, Vat_no, Qty, process_date, User_ID, Delegated_to, flag_update) 
-            VALUES ('${formatDNc_No}', '${Item_ID}', ${vat_no}, ${qty_per_vat}, @process_date, 'test', 'test', 'Created (G)');`
+            VALUES ('${formatDNc_No}', '${Item_ID}', ${vat_no}, ${qty_per_vat}, @process_date, '${user_id}', '${delegated_to}', 'Created (G)');`
       );
       if (result.length === 0) throw new MyError(404, "Rack Not Found");
       const recordset = result?.recordset;
@@ -1395,8 +1424,8 @@ class MsqlController {
           qty_less: qty_per_vat,
           vat_no,
           vat_qty,
-          user_id: "test",
-          delegated_to: "test",
+          user_id: user_id,
+          delegated_to: delegated_to,
           flag: "INSERTED (GS)",
         },
         { transaction: t }
@@ -1415,6 +1444,7 @@ class MsqlController {
   static async insertTimbangToGudang(req, res, next) {
     let t = await sequelize.transaction();
     try {
+      const { user_id, delegated_to } = req.user;
       console.log(req.body, "ini body insertTimbangToGudang");
       const { recordsetTtba, recordsetStockPosition } = req.body;
       const { loc, rak, row, col, ttbaScanned } = req.params;
@@ -1440,8 +1470,8 @@ class MsqlController {
       request.input("process_date", sql.DateTime, new Date());
 
       const insert = await request.query(
-        `INSERT INTO t_pemetaan_gudang (Lokasi, Rak, Baris, Kolom, Item_Name, Qty, DNc_No, Item_ID, Process_Date, DNc_TTBANo) 
-            VALUES ('${loc}', '${rak}', '${row}', '${col}', '${Item_Name}', ${qty_per_vat}, '${DNc_No}', '${Item_ID}', @process_date, '${formatTtbaScanned}');`
+        `INSERT INTO t_pemetaan_gudang (Lokasi, Rak, Baris, Kolom, Item_Name, Qty, DNc_No, Item_ID, Process_Date, DNc_TTBANo, User_ID, Delegated_To) 
+            VALUES ('${loc}', '${rak}', '${row}', '${col}', '${Item_Name}', ${qty_per_vat}, '${DNc_No}', '${Item_ID}', @process_date, '${formatTtbaScanned}', '${user_id}', '${delegated_to}');`
       );
       if (insert.length === 0) throw new MyError(404, "Rack Not Found");
 
@@ -1467,8 +1497,8 @@ class MsqlController {
           qty_less: 0,
           vat_no,
           vat_qty,
-          user_id: "test",
-          delegated_to: "test",
+          user_id: user_id,
+          delegated_to: delegated_to,
           flag: "INSERTED (SG)",
         },
         { transaction: t }
@@ -1514,6 +1544,8 @@ class MsqlController {
   static async deleteProductFromRackByTtbaScanned(req, res, next) {
     let t = await sequelize.transaction();
     try {
+      const { user_id, delegated_to } = req.user;
+
       const { loc, rak, row, col, ttbaScanned } = req.params;
       const {
         newQty,
@@ -1526,17 +1558,18 @@ class MsqlController {
         vat_no,
         vat_qty,
         ttba_scanned,
+        status_ttba,
       } = req.body;
       const location = `${loc}/${rak}/${row}/${col}`;
       const formatItem_ID = req.params.Item_ID.replace(/_/g, " ");
       const formatDNc_No = req.params.DNc_No.replace(/%2f/g, "/");
       const formatTtbaDNcNo = req.params.ttbaScanned.replace(/%2F/g, "/");
 
-      // cons= ttba_no.replace(/-/g, "/");
+      // cons= ttba_no.replace(/-/g, "/"); 
       const pool = await sql.connect(config);
       const request = pool.request();
-      // console.log(req.params);
-
+      // console.log(req.params); 
+ 
       const result = await request.query(
         `DELETE FROM t_pemetaan_gudang 
         WHERE Lokasi = '${loc}' AND Rak = '${rak}' AND Baris = '${row}' AND Kolom = '${col}' AND Item_ID = '${formatItem_ID}' AND DNc_No = '${formatDNc_No}' AND DNc_TTBANo = '${formatTtbaDNcNo}';`
@@ -1560,8 +1593,10 @@ class MsqlController {
           qty_less: newQty,
           vat_no,
           vat_qty,
-          user_id: "test",
-          delegated_to: "test",
+          status_ttba,
+
+          user_id: user_id,
+          delegated_to: delegated_to,
           flag: "DELETED (G)",
         },
         { transaction: t }
@@ -1580,6 +1615,8 @@ class MsqlController {
   static async deletePemetaanByTtba(req, res, next) {
     let t = await sequelize.transaction();
     try {
+      const { user_id, delegated_to } = req.user;
+
       const { ttbaScanned } = req.params;
       const { product, rack, scanned } = req.body; // Assuming the new quantity is sent in the request body
 
@@ -1658,8 +1695,8 @@ class MsqlController {
           qty_less: qty_per_vat, // kudu di cek lagi
           vat_no,
           vat_qty,
-          user_id: "test",
-          delegated_to: "test",
+          user_id: user_id,
+          delegated_to: delegated_to,
           flag: "DELETED (G)",
         },
         { transaction: t }
