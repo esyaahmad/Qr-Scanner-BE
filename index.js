@@ -4,6 +4,7 @@ const express = require("express");
 const cors = require("cors");
 const router = require('./routers/index')
 const handleError = require("./middlewares/eror");
+const bodyParser = require('body-parser');
 // const helmet = require("helmet");
 // const errorHandler = require("./middlewares/errorHandler");
 
@@ -16,6 +17,7 @@ app.use(express.urlencoded({ extended: true })); // for parsing application/x-ww
 app.use(express.json()); // for parsing application/json
 app.use(router); // for routers
 app.use(handleError); // for error handling
+app.use(bodyParser.json());
 // app.use(helmet()); // for security
 
 // app.use(errorHandler); // for error handling
