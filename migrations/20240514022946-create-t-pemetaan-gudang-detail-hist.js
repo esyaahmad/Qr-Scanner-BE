@@ -2,11 +2,15 @@
 /** @type {import('sequelize-cli').Migration} */
 module.exports = {
   async up(queryInterface, Sequelize) {
-    await queryInterface.createTable('t_pemetaan_gudang_details', {
+    await queryInterface.createTable('t_pemetaan_gudang_details_hist', {
+      status: {
+        type: Sequelize.STRING
+      },
+      changeDate: {
+        type: Sequelize.DATE
+      },
       id: {
         allowNull: false,
-        autoIncrement: true,
-        primaryKey: true,
         type: Sequelize.INTEGER
       },
       lokasi: {
@@ -71,6 +75,6 @@ module.exports = {
     });
   },
   async down(queryInterface, Sequelize) {
-    await queryInterface.dropTable('t_pemetaan_gudang_details');
+    await queryInterface.dropTable('t_pemetaan_gudang_details_hist');
   }
 };
