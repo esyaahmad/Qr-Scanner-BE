@@ -791,7 +791,7 @@ class MsqlController {
       LEFT JOIN m_Item_Manufacturing b ON a.MR_ItemID  = b.Item_ID 
       where isnull(nett_qty,0) = 0 and No_Mesin_Timbang = ${id} order by No_Mesin_Timbang, No_Urut_Timbang;`;
       const result = await request.query(query);
-      
+
       if (result.recordset.length === 0) {
         throw new MyError(404, "Data Not Found");
       }
@@ -989,6 +989,67 @@ class MsqlController {
       });
     } catch (error) {
       await t.rollback();
+      console.log(error);
+      next(error);
+    }
+  }
+
+  static async patchValidateTimbang(req, res, next) {
+    try {
+      const { user_id, delegated_to } = req.user;
+      const formatDNcTimbang = req.params.DNcTimbang.replace(/%2F/g, "/");
+      const formatItemId = req.params.ItemIdTimbang.replace(/%20/g, " ");
+
+      const { DNcLabel, ItemIdLabel, no_vat } = req.body;
+
+      console.log(req.body, "ini body patchValidateTimbang");
+      console.log(req.params, "ini params patchValidateTimbang");
+      const pool = await sql.connect(config);
+      const request = pool.request();
+      const result = await request.query(
+        `UPDATE t_bon_keluar_bahan_awal_timbang 
+          SET ItemID_Scan = '${ItemIdLabel}', DNcno_Scan = '${DNcLabel}'
+          WHERE MR_ItemID = '${formatItemId}' AND MR_DNcNo = '${formatDNcTimbang}' AND No_Vat = ${no_vat};`
+      );
+
+      if (result.rowsAffected[0] === 0)
+        throw new MyError(404, "Product Not Found");
+
+      res.status(200).json({
+        message: "Product validated successfully",
+      });
+    } catch (error) {
+      console.log(error);
+      next(error);
+    }
+  }
+
+  static async patchWithdrawStockKecil(req, res, next) {
+    try {
+      const { user_id, delegated_to } = req.user;
+      const formatDNcTimbang = req.params.DNcTimbang.replace(/%2F/g, "/");
+      const formatItemId = req.params.ItemIdTimbang.replace(/%20/g, " ");
+      const { noVatTimbang } = req.params;
+      const {qty} = req.body;
+
+      // console.log(req.body, "ini body patchValidateTimbang");
+      // console.log(req.params, "ini params patchValidateTimbang");
+      const pool = await sql.connect(config);
+      const request = pool.request();
+      const result = await request.query(
+        `UPDATE t_item_stock_position_dnc_kecil 
+          SET Qty = Qty - ${qty}
+          WHERE Item_ID = '${formatItemId}' AND DNc_no = '${formatDNcTimbang}' AND Vat_no = ${noVatTimbang};`
+      );
+
+      if (result.rowsAffected[0] === 0)
+        throw new MyError(404, "Product Not Found");
+
+      res.status(200).json({
+        message: "Stock kecil updated successfully",
+      });
+
+    } catch (error) {
       console.log(error);
       next(error);
     }
@@ -1565,11 +1626,11 @@ class MsqlController {
       const formatDNc_No = req.params.DNc_No.replace(/%2f/g, "/");
       const formatTtbaDNcNo = req.params.ttbaScanned.replace(/%2F/g, "/");
 
-      // cons= ttba_no.replace(/-/g, "/"); 
+      // cons= ttba_no.replace(/-/g, "/");
       const pool = await sql.connect(config);
       const request = pool.request();
-      // console.log(req.params); 
- 
+      // console.log(req.params);
+
       const result = await request.query(
         `DELETE FROM t_pemetaan_gudang 
         WHERE Lokasi = '${loc}' AND Rak = '${rak}' AND Baris = '${row}' AND Kolom = '${col}' AND Item_ID = '${formatItem_ID}' AND DNc_No = '${formatDNc_No}' AND DNc_TTBANo = '${formatTtbaDNcNo}';`
